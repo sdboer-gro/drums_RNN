@@ -200,30 +200,18 @@ class RNN:
     def updateWeights(self, dWin, dW, dWout):
         #preventing from exploding gradient problem:
         if dWin.max() > self.max_clip_value:
-            print("dWin max", dWin.max(), "dWin[dWin > self.max_clip_value]", dWin[dWin > self.max_clip_value])
             dWin[dWin > self.max_clip_value] = self.max_clip_value
-            print("dWin max", dWin.max(), "dWin[dWin > self.max_clip_value]", dWin[dWin > self.max_clip_value])
         if dW.max() > self.max_clip_value:
-            print("dW max", dW.max(), "dW[dW > self.max_clip_value]", dW[dW > self.max_clip_value])
             dW[dW > self.max_clip_value] = self.max_clip_value
-            print("dW max", dW.max(), "dW[dW > self.max_clip_value]", dW[dW > self.max_clip_value])
         if dWout.max() > self.max_clip_value:
-            print("dWout max", dWout.max(), "dWout[dWout > self.max_clip_value]", dWout[dWout > self.max_clip_value])
             dWout[dWout > self.max_clip_value] = self.max_clip_value
-            print("dWout max", dWout.max(), "dWout[dWout > self.max_clip_value]", dWout[dWout > self.max_clip_value])
 
         if dWin.min() < self.min_clip_value:
-            print("dWin min", dWin.min(), "dWin[dWin > self.min_clip_value]", dWin[dWin < self.min_clip_value])
             dWin[dWin < self.min_clip_value] = self.min_clip_value
-            print("dWin min", dWin.min(), "dWin[dWin > self.min_clip_value]", dWin[dWin < self.min_clip_value])
         if dW.min() < self.min_clip_value:
-            print("dW min", dW.min(), "dW[dW > self.min_clip_value]", dW[dW < self.min_clip_value])
             dW[dW < self.min_clip_value] = self.min_clip_value
-            print("dW min", dW.min(), "dW[dW > self.min_clip_value]", dW[dW < self.min_clip_value])
         if dWout.min() < self.min_clip_value:
-            print("dWout min", dWout.min(), "dWout[dWout > self.min_clip_value]", dWout[dWout < self.min_clip_value])
             dWout[dWout < self.min_clip_value] = self.min_clip_value
-            print("dWout min", dWout.min(), "dWout[dWout > self.min_clip_value]", dWout[dWout < self.min_clip_value])
 
         #updating: + alfa w'w???
         self.Winput -= self.learning_rate * dWin
@@ -296,7 +284,7 @@ for i in range(epoch-1):
 
 vector_array_prime = []
 
-for i in range(20):
+for i in range(5):
     vector_array_prime.append(vector_array_u_train[i])
 
 vector_array_prime = np.array(vector_array_prime)
