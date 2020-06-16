@@ -90,7 +90,7 @@ with open('pride.csv', newline='') as f: # andere csv file openen
                 loudness2 = data[line_count][5]
             line_count += 1
 
-            quarter_notes = int(data[line_count][1]) / 80 # verandert per liedje
+            quarter_notes = int(data[line_count][1]) / 480 # verandert per liedje
             sixteenth_notes = quarter_notes
 
         vector = [int(loudness1)/127, int(loudness2)/127]
@@ -135,10 +135,10 @@ class RNN:
         self.vocab_size = 2
         self.learning_rate = 0.01
 
-        self.bptt_truncate = 10
+        self.bptt_truncate = 5
         self.min_clip_value = -1   #uitproberen met trial and error
         self.max_clip_value = 1    #uitproberen met trial and error
-        self.alfa = 20
+        self.alfa = 10
 
         self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
         self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
@@ -215,6 +215,12 @@ class RNN:
         dWout /= len(Y)
         return dWin, dW, dWout
 
+    def lastWUpdate(self, Y):
+        self.Winput += (2 * self.alfa * (self.Winput / len(Y)))
+        self.W +=  (2 * self.alfa * (self.W / len(Y)))
+        self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
+        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
+
     def updateWeights(self, dWin, dW, dWout, Y):
         #preventing from exploding gradient problem:
         if dWin.max() > self.max_clip_value:
@@ -231,10 +237,14 @@ class RNN:
         if dWout.min() < self.min_clip_value:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
 
+        (2 * self.alfa * (self.Winput / len(Y)))
+        self.W +=  (2 * self.alfa * (self.W / len(Y)))
+        self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
         #updating: + alfa w'w???
-        self.Winput -= self.learning_rate * dWin - (self.alfa * (self.Winput / len(Y)))
-        self.W -= self.learning_rate * dW - (self.alfa * (self.W / len(Y)))
-        self.Woutput -= self.learning_rate * dWout - (self.alfa * (self.Woutput / len(Y)))
+        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
+        self.Winput -= self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
+        self.W -= self.learning_rate * dW + self.W + 2 * self.alfa * (self.W / len(Y))
+        self.Woutput -= self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
 
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
@@ -293,6 +303,7 @@ while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1])
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
     print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
+#rnn.lastWUpdate(vector_array_y_train)
 plot_losses(testLosses, trainingLosses, epoch)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
@@ -304,6 +315,8 @@ for i in range(epoch):
     rnnRun.training(vector_array_u_test_train, vector_array_y_test_train)
     loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
+
+#RnnRun.lastWUpdate(vector_array_y_test_train)
     #rnnRun.Winput += rnnRun.alfa * rnnRun.Winput
 #rnnRun.W += rnnRun.alfa * np.dot(rnnRun.W, np.transpose(rnnRun.W))
 #rnnRun.Woutput += rnnRun.alfa * rnnRun.Woutput
@@ -311,7 +324,7 @@ for i in range(epoch):
 vector_array_prime = []
 
 for i in range(10, 30):
-    vector_array_prime.append(vector_array_u_train[i])
+    vector_array_prime.append(vector_array_u_test_train[i])
 
 vector_array_prime = np.array(vector_array_prime)
 
