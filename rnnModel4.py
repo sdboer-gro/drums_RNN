@@ -2,6 +2,7 @@ import numpy as np
 import math
 import re
 import csv
+import matplotlib.pyplot as plt
 #import pymidicsv
 
 vector_array_u_train = []
@@ -109,6 +110,23 @@ with open('pride.csv', newline='') as f: # andere csv file openen
 #https://www.analyticsvidhya.com/blog/2019/01/fundamentals-deep-learning-recurrent-neural-networks-scratch-python/
 #http://www.wildml.com/2015/10/recurrent-neural-networks-tutorial-part-3-backpropagation-through-time-and-vanishing-gradients/
 #https://d2l.ai/chapter_recurrent-neural-networks/bptt.html
+#https://towardsdatascience.com/understanding-the-scaling-of-l%C2%B2-regularization-in-the-context-of-neural-networks-e3d25f8b50db
+#https://missinglink.ai/guides/neural-network-concepts/neural-networks-regression-part-1-overkill-opportunity/
+
+def plot_losses(testingLoss, trainingLoss, epoch):
+    t = np.linspace(0.0, epoch, epoch)
+    fig, ax = plt.subplots()
+    ax.plot(t, testingLoss, label = "loss")
+    ax.plot(t, trainingLoss, label = "Emperical loss")
+
+    ax.set(xlabel='Epochs', ylabel='Loss/emperical risk', title='Model flexibility', label='')
+    ax.grid()
+
+    fig.savefig("flexibility.png")
+    plt.show()
+
+
+
 
 class RNN:
     def __init__(self):
@@ -117,7 +135,7 @@ class RNN:
         self.vocab_size = 2
         self.learning_rate = 0.01
 
-        self.bptt_truncate = 5
+        self.bptt_truncate = 10
         self.min_clip_value = -1   #uitproberen met trial and error
         self.max_clip_value = 1    #uitproberen met trial and error
         self.alfa = 20
@@ -152,7 +170,7 @@ class RNN:
             yHat = np.reshape(yHat, (2, 1))
             y = np.reshape(y, (2, 1))
 
-            loss += (y-yHat)**2
+            loss += (abs(y-yHat))**2
         risk = loss / len(Y)
         return risk
 
@@ -174,7 +192,7 @@ class RNN:
         dWout = np.zeros(self.Woutput.shape)
         dW = np.zeros(self.W.shape)
 
-        delta_loss = 2 * (yHat - Y)
+        delta_loss = 2 * (abs(yHat - Y))
         delta_loss = np.array(delta_loss)
 
         for t in range(len(Y))[::-1]: #deze loop gaat van len(Y) met stapjes van 1 naar 0
@@ -197,7 +215,7 @@ class RNN:
         dWout /= len(Y)
         return dWin, dW, dWout
 
-    def updateWeights(self, dWin, dW, dWout):
+    def updateWeights(self, dWin, dW, dWout, Y):
         #preventing from exploding gradient problem:
         if dWin.max() > self.max_clip_value:
             dWin[dWin > self.max_clip_value] = self.max_clip_value
@@ -214,9 +232,9 @@ class RNN:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
 
         #updating: + alfa w'w???
-        self.Winput -= self.learning_rate * dWin
-        self.W -= self.learning_rate * dW
-        self.Woutput -= self.learning_rate * dWout
+        self.Winput -= self.learning_rate * dWin - (self.alfa * (self.Winput / len(Y)))
+        self.W -= self.learning_rate * dW - (self.alfa * (self.W / len(Y)))
+        self.Woutput -= self.learning_rate * dWout - (self.alfa * (self.Woutput / len(Y)))
 
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
@@ -224,7 +242,7 @@ class RNN:
         yHat = np.reshape(yHat, (len(Y), self.vocab_size))
         hidden_states = np.reshape(hidden_states, (len(Y), self.hidden_size))
         dWin, dW, dWout = self.backprop(yHat, U, hidden_states, Y)
-        self.updateWeights(dWin, dW, dWout)
+        self.updateWeights(dWin, dW, dWout, Y)
 
     def prediction(self, U): #moeten we niet primen????
         #print("W: ",self.W)
@@ -260,21 +278,29 @@ print("testu :", vector_array_u_test)
 epoch = 0
 previous_Testloss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
 testLoss = previous_Testloss
+trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
+prev_loss = trainLoss
+testLosses = []
+trainingLosses = []
 while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1]):
+    epoch += 1
+    trainingLosses.append(trainLoss[0] + trainLoss[1])
+    testLosses.append(testLoss[0] + testLoss[1])
+    prev_loss = trainLoss
     previous_Testloss = testLoss
     rnn.training(vector_array_u_train, vector_array_y_train)
     trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
-    print('Epoch: ', epoch + 1, ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
-    epoch += 1
+    print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
+plot_losses(testLosses, trainingLosses, epoch)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
 vector_array_y_test_train = np.append(vector_array_y_train, vector_array_y_test, axis=0)
 print("trainu :", vector_array_u_train)
 print("testtrainu :", vector_array_u_test_train)
 
-for i in range(epoch-1):
+for i in range(epoch):
     rnnRun.training(vector_array_u_test_train, vector_array_y_test_train)
     loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
@@ -284,7 +310,7 @@ for i in range(epoch-1):
 
 vector_array_prime = []
 
-for i in range(5):
+for i in range(10, 30):
     vector_array_prime.append(vector_array_u_train[i])
 
 vector_array_prime = np.array(vector_array_prime)
