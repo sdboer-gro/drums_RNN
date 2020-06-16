@@ -131,7 +131,7 @@ def plot_losses(testingLoss, trainingLoss, epoch):
 class RNN:
     def __init__(self):
 
-        self.hidden_size = 300
+        self.hidden_size = 500
         self.vocab_size = 2
         self.learning_rate = 0.001
 
@@ -340,31 +340,31 @@ for i in range(0, len(result)):
 #print("result :",result)
 print("shape result: ",result.shape)
 
+#with open('result.csv', 'w') as f:
+#    f.write('0, 0, Header, 1, 2, 264\n')
+#    f.write('1, 0, Start_track\n')
+#    f.write('1, 0, Key_signature, 0, "major"\n')
+#    f.write('1, 0, Tempo, 501133\n')
+#    f.write('1, 0, Time_signature, 4, 2, 24, 8\n')
+#    f.write('1, 0, End_track\n')
+#    f.write('2, 0, Start_track\n')
+#    f.write('2, 0, Title_t, "drums"\n')
+#    f.write('2, 0, MIDI_port, 0\n')
+#    for i in range(0, len(result)):
+#        y = result[i]
+#        midi_clock = i * 264
+#
+#        loudness1 = int(y[0] * 127)
+#        loudness2 = int(y[1] * 127)
+#        f.write('2, {}, Note_on_c, 9, 38, {}\n'.format(midi_clock, loudness1))
+#        f.write('2, {}, Note_on_c, 9, 42, {}\n'.format(midi_clock, loudness2))
+#    f.write('2, 0, End_track\n')
+#    f.write('0, 0, End_of_file\n')
 
-with open('result.csv', 'w') as f:
-    f.write('0, 0, Header, 1, 2, 264\n')
-    f.write('1, 0, Start_track\n')
-    f.write('1, 0, Key_signature, 0, "major"\n')
-    f.write('1, 0, Tempo, 501133\n')
-    f.write('1, 0, Time_signature, 4, 2, 24, 8\n')
-    f.write('1, 0, End_track\n')
-    f.write('2, 0, Start_track\n')
-    f.write('2, 0, Title_t, "drums"\n')
-    f.write('2, 0, MIDI_port, 0\n')
-    for i in range(0, len(result)):
-        y = result[i]
-        midi_clock = i * 264
 
-        loudness1 = int(y[0] * 127)
-        loudness2 = int(y[1] * 127)
-        f.write('2, {}, Note_on_c, 9, 38, {}\n'.format(midi_clock, loudness1))
-        f.write('2, {}, Note_on_c, 9, 42, {}\n'.format(midi_clock, loudness2))
-    f.write('2, 0, End_track\n')
-    f.write('0, 0, End_of_file\n')
+#midi = py_midicsv.csv_to_midi('result.csv')
 
-
-midi = py_midicsv.csv_to_midi('result.csv')
-
-with open("result.mid", "wb") as output_file:
-    midi_writer = py_midicsv.FileWriter(output_file)
-    midi_writer.write(midi)
+#with open("result.mid", "wb") as output_file:
+#    midi_writer = py_midicsv.FileWriter(output_file)
+#    midi_writer.write(midi)
+#
