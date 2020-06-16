@@ -2,7 +2,7 @@ import numpy as np
 import math
 import re
 import csv
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 #import pymidicsv
 
 vector_array_u_train = []
@@ -133,12 +133,12 @@ class RNN:
 
         self.hidden_size = 300
         self.vocab_size = 2
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
 
         self.bptt_truncate = 5
         self.min_clip_value = -1   #uitproberen met trial and error
         self.max_clip_value = 1    #uitproberen met trial and error
-        self.alfa = 10
+        self.alfa = 2
 
         self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
         self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
@@ -242,9 +242,9 @@ class RNN:
         self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
         #updating: + alfa w'w???
         print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
-        self.Winput -= self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
-        self.W -= self.learning_rate * dW + self.W + 2 * self.alfa * (self.W / len(Y))
-        self.Woutput -= self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
+        self.Winput = self.Winput - self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
+        self.W = self.W - self.learning_rate * dW + self.W + 2 * self.alfa * (self.W / len(Y))
+        self.Woutput = self.Woutput - self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
 
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
@@ -304,7 +304,7 @@ while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1])
     print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
 #rnn.lastWUpdate(vector_array_y_train)
-plot_losses(testLosses, trainingLosses, epoch)
+#plot_losses(testLosses, trainingLosses, epoch)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
 vector_array_y_test_train = np.append(vector_array_y_train, vector_array_y_test, axis=0)
@@ -331,34 +331,40 @@ vector_array_prime = np.array(vector_array_prime)
 result = rnnRun.prediction(vector_array_prime)
 result = np.reshape(result, (len(result), rnnRun.vocab_size))
 
-print("result :",result)
+for i in range(0, len(result)):
+    y = result[i]
+    loudness1 = int(y[0] * 127)
+    loudness2 = int(y[1] * 127)
+    print(loudness1, loudness2)
+
+#print("result :",result)
 print("shape result: ",result.shape)
 
 
-#with open('result.csv', 'w') as f:
-#    f.write('0, 0, Header, 1, 2, 264\n')
-#    f.write('1, 0, Start_track\n')
-#    f.write('1, 0, Key_signature, 0, "major"\n')
-#    f.write('1, 0, Tempo, 501133\n')
-#    f.write('1, 0, Time_signature, 4, 2, 24, 8\n')
-#    f.write('1, 0, End_track\n')
-#    f.write('2, 0, Start_track\n')
-#    f.write('2, 0, Title_t, "drums"\n')
-#    f.write('2, 0, MIDI_port, 0\n')
-#    for i in range(0, len(result)):
-#        y = result[i]
-##        midi_clock = i * 264
-#
-#        loudness1 = int(y[0] * 127)
-#        loudness2 = int(y[1] * 127)
-#        f.write('2, {}, Note_on_c, 9, 38, {}\n'.format(midi_clock, loudness1))
-#        f.write('2, {}, Note_on_c, 9, 42, {}\n'.format(midi_clock, loudness2))
-#    f.write('2, 0, End_track\n')
-#    f.write('0, 0, End_of_file\n')
+with open('result.csv', 'w') as f:
+    f.write('0, 0, Header, 1, 2, 264\n')
+    f.write('1, 0, Start_track\n')
+    f.write('1, 0, Key_signature, 0, "major"\n')
+    f.write('1, 0, Tempo, 501133\n')
+    f.write('1, 0, Time_signature, 4, 2, 24, 8\n')
+    f.write('1, 0, End_track\n')
+    f.write('2, 0, Start_track\n')
+    f.write('2, 0, Title_t, "drums"\n')
+    f.write('2, 0, MIDI_port, 0\n')
+    for i in range(0, len(result)):
+        y = result[i]
+        midi_clock = i * 264
+
+        loudness1 = int(y[0] * 127)
+        loudness2 = int(y[1] * 127)
+        f.write('2, {}, Note_on_c, 9, 38, {}\n'.format(midi_clock, loudness1))
+        f.write('2, {}, Note_on_c, 9, 42, {}\n'.format(midi_clock, loudness2))
+    f.write('2, 0, End_track\n')
+    f.write('0, 0, End_of_file\n')
 
 
-#midi = py_midicsv.csv_to_midi('result.csv')
+midi = py_midicsv.csv_to_midi('result.csv')
 
-#with open("result.mid", "wb") as output_file:
-#    midi_writer = py_midicsv.FileWriter(output_file)
-#    midi_writer.write(midi)
+with open("result.mid", "wb") as output_file:
+    midi_writer = py_midicsv.FileWriter(output_file)
+    midi_writer.write(midi)
