@@ -3,7 +3,7 @@ import math
 import re
 import csv
 #import matplotlib.pyplot as plt
-#import pymidicsv
+import py_midicsv
 
 vector_array_u_train = []
 vector_array_y_train = []
