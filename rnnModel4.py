@@ -3,21 +3,21 @@ import csv
 import matplotlib.pyplot as plt
 import py_midicsv
 
-# The csv file containing the information of the song 'sunday' of U2 is transformed to a  464 by 2 matrix,
+# The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
 # training data.
 vector_array_u_train = []
 vector_array_y_train = []
-with open('sunday.csv', newline='') as f: # andere csv file openen
+with open('sunday.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
 
     line_count = 0
     loudness1 = 0
     loudness2 = 0
-    quarter_notes = int(data[line_count][1]) / 192 # verandert per liedje
+    quarter_notes = int(data[line_count][1]) / 192
     sixteenth_notes = quarter_notes
-    for i in range(0, 464): # range end verandert ook
+    for i in range(0, 464):
         while int(sixteenth_notes) == i:
 
             if int(data[line_count][4]) == 38:
@@ -26,7 +26,7 @@ with open('sunday.csv', newline='') as f: # andere csv file openen
                 loudness2 = data[line_count][5]
             line_count += 1
 
-            quarter_notes = int(data[line_count][1]) / 192 # verandert per liedje
+            quarter_notes = int(data[line_count][1]) / 192
             sixteenth_notes = quarter_notes
 
         vector = [float(loudness1)/127, float(loudness2)/127]
@@ -35,19 +35,19 @@ with open('sunday.csv', newline='') as f: # andere csv file openen
         loudness1 = 0
         loudness2 = 0
 
-# The csv file containing the information of the song 'follow' of U2 is transformed to a  543 by 2 matrix,
+# The csv file containing the information of the song 'follow' of U2 is transformed to a 543 by 2 matrix,
 # representing for each of the 543 timestamps the drum hits of two different drums. This matrix is also
 # used as training data.
-with open('follow.csv', newline='') as f: # andere csv file openen
+with open('follow.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
 
     line_count = 0
     loudness1 = 0
     loudness2 = 0
-    quarter_notes = int(data[line_count][1]) / 120 # verandert per liedje
+    quarter_notes = int(data[line_count][1]) / 120
     sixteenth_notes = quarter_notes
-    for i in range(0, 543): # range end verandert ook
+    for i in range(0, 543):
         while int(sixteenth_notes) == i:
 
             if int(data[line_count][4]) == 38:
@@ -56,7 +56,7 @@ with open('follow.csv', newline='') as f: # andere csv file openen
                 loudness2 = data[line_count][5]
             line_count += 1
 
-            quarter_notes = int(data[line_count][1]) / 120 # verandert per liedje
+            quarter_notes = int(data[line_count][1]) / 120
             sixteenth_notes = quarter_notes
 
         vector = [int(loudness1)/127, int(loudness2)/127]
@@ -77,16 +77,16 @@ vector_array_y_test = []
 # The csv file containing the information of the song 'pride' of U2 is transformed to a  407 by 2 matrix,
 # representing for each of the 407 timestamps the drum hits of two different drums. This matrix is used as
 # testing data.
-with open('pride.csv', newline='') as f: # andere csv file openen
+with open('pride.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
 
     line_count = 0
     loudness1 = 0
     loudness2 = 0
-    quarter_notes = int(data[line_count][1]) / 480 # verandert per liedje
+    quarter_notes = int(data[line_count][1]) / 480
     sixteenth_notes = quarter_notes
-    for i in range(0, 407): # range end verandert ook
+    for i in range(0, 407):
         while int(sixteenth_notes) == i:
 
             if int(data[line_count][4]) == 38:
@@ -118,7 +118,7 @@ with open('pride.csv', newline='') as f: # andere csv file openen
 #https://towardsdatascience.com/understanding-the-scaling-of-l%C2%B2-regularization-in-the-context-of-neural-networks-e3d25f8b50db
 #https://missinglink.ai/guides/neural-network-concepts/neural-networks-regression-part-1-overkill-opportunity/
 
-# A method to plot the testing loss and the training loss in one graph with on the y-axis the loss and on the x-axis the
+# A method that plots the testing loss and the training loss in one graph with on the y-axis the loss and on the x-axis the
 # number of epochs.
 def plot_losses(testingLoss, trainingLoss, epoch):
     t = np.linspace(0.0, epoch, epoch)
@@ -132,7 +132,7 @@ def plot_losses(testingLoss, trainingLoss, epoch):
     fig.savefig("flexibility.png")
     plt.show()
 
-# A class defining an RNN.
+# A class defining a recurrent neural network (RNN).
 class RNN:
     # The constructor of an RNN. The hidden size, vocab size, learning rate, truncated back propagation through time
     # value, minimal clip value, maximal clip value, alpha value used for ridge regression, weight matrices and bias
@@ -170,7 +170,7 @@ class RNN:
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b). KLOPT DT?
+    # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b).
     def state(self, x, u):
         u = np.reshape(u, (2,1))
         # Win*u[n+1]:
@@ -183,9 +183,9 @@ class RNN:
         lol = self.sigmoid(np.add(add, self.b))
         return np.array(lol)
 
-    # A method that checks the loss given an input array and the output array of this input. With the input array, an
-    # output array is computed. This computed output array is then compared to the given output array and the difference
-    # between those two is the loss.
+    # A method that checks the loss given an input array and an output array representing the expected output With the
+    # input array, an output array is computed. This computed output array is then compared to the expected output array
+    # to compute the loss. The loss is computed with the mean squared error.
     def checkLoss(self, U, Y):
         # initialization of x (the hidden states) with zeros:
         x = np.zeros((self.hidden_size, 1))
@@ -193,14 +193,14 @@ class RNN:
         YHat, _ = self.forward(U, x, Y)
         # initialization of the loss vector with zeros:
         loss = np.zeros((self.vocab_size, 1))
-        # computation for each timestamp of the loss (Yhat - Y)^2:  WAAROM ^2??
+        # computation for each timestamp of the loss (Yhat - Y)^2, this is the squared error:
         for i in range(len(Y)):
             yHat, y = YHat[i], Y[i]
             yHat = np.reshape(yHat, (2, 1))
             y = np.reshape(y, (2, 1))
 
             loss += (abs(y-yHat))**2
-        # averaging of the loss:
+        # averaging of the loss to get the mean squared error:
         risk = loss / len(Y)
         return risk
 
@@ -210,8 +210,8 @@ class RNN:
         preds = []
         hidden_states = []
         # for each timestamp an output array (yHat) and the hidden states are computed, the output arrays are added to
-        # the prediction array and the hidden states are added to the hidden states array for later use in the back
-        # propagation through time.
+        # the prediction array and the hidden states are added to the hidden states array for later use in the truncated
+        # back propagation through time.
         for i in range (len(Y)):
             u, y = U[i], Y[i]
             x = self.state(x, u)
@@ -221,8 +221,8 @@ class RNN:
             preds.append(yHat)
         return np.array(preds), np.array(hidden_states)
 
-    # A method that performs the truncated back propagation through time. EXPLAIN WHY TRUNCATED????? The gradients of the
-    # weight matrices are computed with the use of the derivative of the loss.
+    # A method that performs truncated back propagation through time. Truncated is used to make it less computationally
+    # expensive. The gradients of the weight matrices are computed with the use of the derivative of the loss.
     def backprop(self, yHat, U, x, Y):
         # initialization of the gradients with zeros:
         dWin = np.zeros(self.Winput.shape)
@@ -239,7 +239,8 @@ class RNN:
             delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
             delta_t *= self.sigmoidPrime(x[t])
 
-            # the truncated loop, it does not go back through all the states but as many steps as the bptt_truncate value:
+            # the truncated loop, it does not go back through all the states but it goes back as many steps as the
+            # bptt_truncate value:
             maximum = max(0, t-self.bptt_truncate)
             for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
                 dW += np.outer(delta_t, x[timestep - 1])
@@ -305,7 +306,7 @@ class RNN:
         hidden_states = []
         preds = []
         x = np.zeros((self.hidden_size, 1))
-        # computation of the outputs with the use of the prime array, same way as in the forward function.
+        # computation of the outputs with the use of the prime array, this goes the same way as in the forward function.
         for i in range (len(U)):
             u = U[i]
             print("x", x)
@@ -326,14 +327,14 @@ class RNN:
         return np.array(preds)
 
 
-# a recurrent neural network is initialized and copied to be used later.
+# a recurrent neural network is initialized and copied to be used for cross validation.
 rnn = RNN()
 rnnRun = rnn
 print("trainu :", vector_array_u_train)
 print("testu :", vector_array_u_test)
 
 # a loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
-# this number until the testing loss no longer decreases.
+# the number until the testing loss no longer decreases.
 epoch = 0
 previous_Testloss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
 testLoss = previous_Testloss
