@@ -1,7 +1,6 @@
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-import py_midicsv
 
 # The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
@@ -146,11 +145,11 @@ class RNN:
     # initialized with ones EXPLAIN WHY.
     def __init__(self):
 
-        self.hidden_size = 500
+        self.hidden_size = 300
         self.vocab_size = 2
         self.learning_rate = 0.001
 
-        self.bptt_truncate = 5
+        self.bptt_truncate = 20
         self.min_clip_value = -1
         self.max_clip_value = 1
         self.alfa = 2
@@ -257,13 +256,6 @@ class RNN:
         dWout /= len(Y)
         return dWin, dW, dWout
 
-    # A method that ?????????????????????????????
-    def lastWUpdate(self, Y):
-        self.Winput += (2 * self.alfa * (self.Winput / len(Y)))
-        self.W +=  (2 * self.alfa * (self.W / len(Y)))
-        self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
-        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
-
     # A method that updates the weight matrices.
     def updateWeights(self, dWin, dW, dWout, Y):
         #preventing from exploding gradient problem:
@@ -282,11 +274,11 @@ class RNN:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
 
         #ridge regression????????????????????????????????????????????????????????????????????????:
-        (2 * self.alfa * (self.Winput / len(Y)))
-        self.W +=  (2 * self.alfa * (self.W / len(Y)))
-        self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
+        #(2 * self.alfa * (self.Winput / len(Y)))
+        #self.W +=  (2 * self.alfa * (self.W / len(Y)))
+        #self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
         #updating:
-        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
+        #print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
         self.Winput = self.Winput - self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
         self.W = self.W - self.learning_rate * dW + self.W + 2 * self.alfa * (self.W / len(Y))
         self.Woutput = self.Woutput - self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
@@ -392,7 +384,7 @@ print("result :",result)
 print("shape result: ",result.shape)
 
 # The output matrix is transformed into a csv file.
-with open('result.csv', 'w') as f:
+'''with open('result.csv', 'w') as f:
     f.write('0, 0, Header, 1, 2, 264\n')
     f.write('1, 0, Start_track\n')
     f.write('1, 0, Key_signature, 0, "major"\n')
@@ -420,4 +412,4 @@ midi = py_midicsv.csv_to_midi('result.csv')
 with open("result.mid", "wb") as output_file:
     midi_writer = py_midicsv.FileWriter(output_file)
     midi_writer.write(midi)
-
+'''
