@@ -134,18 +134,21 @@ class RNN:
     # vector are initialized here.
     def __init__(self):
 
-        self.hidden_size = 300
+        self.hidden_size = 176
         self.vocab_size = 2
-        self.learning_rate = 0.001
+        self.learning_rate = 0.00001
 
-        self.bptt_truncate = 20
+        self.bptt_truncate = 30
         self.min_clip_value = -1
         self.max_clip_value = 1
         self.alfa = 2
 
-        self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
-        self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
-        self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
+        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
+        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
+        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
+        #self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
+        #self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
+        #self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
 
         self.b = np.ones((self.hidden_size, 1))
 
@@ -175,13 +178,16 @@ class RNN:
         # Computation of the output array given the input array:
         YHat, _ = self.forward(U, x, Y)
         # Initialization of the loss vector with zeros:
-        loss = np.zeros((self.vocab_size, 1))
+        loss = 0
         # Computation for each timestamp of the loss (Yhat - Y)^2:
         for i in range(len(Y)):
             yHat, y = YHat[i], Y[i]
             yHat = np.reshape(yHat, (2, 1))
             y = np.reshape(y, (2, 1))
-            loss += (abs(y-yHat))**2
+            d = abs(y-yHat)
+            d1 = np.transpose(d)
+            dot = int(d1.dot(d))
+            loss += dot
 
         # Averaging of the loss to get the mean squared error:
         risk = loss / len(Y)
@@ -305,16 +311,18 @@ rnnRun = rnn
 # A loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
 # the number until the testing loss no longer decreases.
 epoch = 0
-previous_Testloss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
-testLoss = previous_Testloss
+previous_Testloss = 10000
+    #rnn.checkLoss(vector_array_u_test, vector_array_y_test)
+testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test) #previous_Testloss
 trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
-prev_loss = trainLoss
+print(testLoss, trainLoss)
+prev_loss = 10000 #trainLoss
 testLosses = []
 trainingLosses = []
-while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1]):
+while previous_Testloss > testLoss:
     epoch += 1
-    trainingLosses.append(trainLoss[0] + trainLoss[1])
-    testLosses.append(testLoss[0] + testLoss[1])
+    trainingLosses.append(trainLoss)
+    testLosses.append(testLoss)
     prev_loss = trainLoss
     previous_Testloss = testLoss
     rnn.training(vector_array_u_train, vector_array_y_train)
@@ -325,10 +333,10 @@ while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1])
 n = epoch
 
  # The training is run for some more epochs to show in the model flexibility plot.
-for i in range (5):
+for i in range(5):
     n += 1
-    trainingLosses.append(trainLoss[0] + trainLoss[1])
-    testLosses.append(testLoss[0] + testLoss[1])
+    trainingLosses.append(trainLoss)
+    testLosses.append(testLoss)
     prev_loss = trainLoss
     previous_Testloss = testLoss
     rnn.training(vector_array_u_train, vector_array_y_train)
@@ -338,13 +346,14 @@ for i in range (5):
 plot_losses(testLosses, trainingLosses, n)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
-vector_array_y_test_train = np.append(vector_array_y_train, vector_array_y_test, axis=0)
+vector_array_y_test_train = np.append(vector_array_y_test, vector_array_y_train, axis=0)
 
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
     rnnRun.training(vector_array_u_test_train, vector_array_y_test_train)
     loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
+
 
 # The prime array is created with a part from the whole data array:
 vector_array_prime = []
@@ -363,7 +372,7 @@ for i in range(0, len(result)):
     print(loudness1, loudness2)
 
 # The output matrix is transformed into a csv file.
-'''with open('result.csv', 'w') as f:
+with open('result.csv', 'w') as f:
     f.write('0, 0, Header, 1, 2, 264\n')
     f.write('1, 0, Start_track\n')
     f.write('1, 0, Key_signature, 0, "major"\n')
@@ -385,7 +394,7 @@ for i in range(0, len(result)):
     f.write('0, 0, End_of_file\n')
 
 
-midi = py_midicsv.csv_to_midi('result.csv')
+'''midi = py_midicsv.csv_to_midi('result.csv')
 
 # the csv file containing the information of the output is transformed into a midi file.
 with open("result.mid", "wb") as output_file:
