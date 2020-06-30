@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
+from copy import deepcopy
 
 # The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
@@ -127,6 +128,7 @@ def plot_losses(testingLoss, trainingLoss, epoch):
     fig.savefig("flexibility.png")
     plt.show()
 
+
 # A class defining a recurrent neural network (RNN).
 class RNN:
     # The constructor of an RNN. The hidden size, vocab size, learning rate, truncated back propagation through time
@@ -134,18 +136,18 @@ class RNN:
     # vector are initialized here.
     def __init__(self):
 
-        self.hidden_size = 170
+        self.hidden_size = 300
         self.vocab_size = 2
-        self.learning_rate = 0.005
+        self.learning_rate = 0.001
 
-        self.bptt_truncate = 30
+        self.bptt_truncate = 50
         self.min_clip_value = -1
         self.max_clip_value = 1
-        self.alfa = 20
+        self.alfa = 2
 
-        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
-        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
-        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
+        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/(self.vocab_size - 1))
+        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
+        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
         #self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
         #self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
         #self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
@@ -266,7 +268,7 @@ class RNN:
 
         # Updates the weights with the gradients and applies the ridge regression:
         self.Winput = self.Winput - self.learning_rate * dWin - 2 * self.alfa * (self.Winput / len(Y))
-        self.W = self.W - self.learning_rate * dW + self.W - 2 * self.alfa * (self.W / len(Y))
+        self.W = self.W - self.learning_rate * dW - 2 * self.alfa * (self.W / len(Y))
         self.Woutput = self.Woutput - self.learning_rate * dWout - 2 * self.alfa * (self.Woutput / len(Y))
 
     # A method that trains the recurrent neural network by performing the forward pass and the truncated backpropagation
@@ -304,7 +306,9 @@ class RNN:
 
 # A recurrent neural network is initialized and copied to be used for cross validation.
 rnn = RNN()
-rnnRun = rnn
+rnnRun = deepcopy(rnn)
+if rnn is rnnRun:
+    print('it is the same RNN')
 
 # A loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
 # the number until the testing loss no longer decreases.
@@ -324,11 +328,16 @@ while previous_Testloss >= testLoss:
     rnn.training(vector_array_u_train, vector_array_y_train)
     trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
-    print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
+    print('Epoch: ', epoch, ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
 n = epoch
 
- # The training is run for some more epochs to show in the model flexibility plot.
+if rnn is rnnRun:
+    print('it is the same RNN')
+else:
+    print('not the same anymore')
+
+# The training is run for some more epochs to show in the model flexibility plot.
 for i in range(5):
     n += 1
     trainingLosses.append(trainLoss)
@@ -346,10 +355,12 @@ plot_losses(testLosses, trainingLosses, n)
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
 vector_array_y_test_train = np.append(vector_array_y_test, vector_array_y_train, axis=0)
 
+print(vector_array_u_test_train, vector_array_y_test_train)
+
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
     rnnRun.training(vector_array_u_test_train, vector_array_y_test_train)
-    loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
+    loss = rnnRun.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
 
 
