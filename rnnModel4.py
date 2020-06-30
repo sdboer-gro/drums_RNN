@@ -134,14 +134,14 @@ class RNN:
     # vector are initialized here.
     def __init__(self):
 
-        self.hidden_size = 176
+        self.hidden_size = 170
         self.vocab_size = 2
-        self.learning_rate = 0.00001
+        self.learning_rate = 0.005
 
         self.bptt_truncate = 30
         self.min_clip_value = -1
         self.max_clip_value = 1
-        self.alfa = 2
+        self.alfa = 20
 
         self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
         self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
@@ -186,7 +186,7 @@ class RNN:
             y = np.reshape(y, (2, 1))
             d = abs(y-yHat)
             d1 = np.transpose(d)
-            dot = int(d1.dot(d))
+            dot = np.dot(d1, d)
             loss += dot
 
         # Averaging of the loss to get the mean squared error:
@@ -231,7 +231,7 @@ class RNN:
             # The truncated loop, it does not go back through all the states but it goes back as many steps as the
             # bptt_truncate value:
             maximum = max(0, t-self.bptt_truncate)
-            for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
+            for timestep in np.arange(maximum, t+1)[::-1]:
                 dW += np.outer(delta_t, x[timestep - 1])
                 dWin += np.outer(delta_t, U[timestep])
                 delta_t = np.dot(np.transpose(self.W), delta_t)
@@ -265,9 +265,9 @@ class RNN:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
 
         # Updates the weights with the gradients and applies the ridge regression:
-        self.Winput = self.Winput - self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
-        self.W = self.W - self.learning_rate * dW + self.W + 2 * self.alfa * (self.W / len(Y))
-        self.Woutput = self.Woutput - self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
+        self.Winput = self.Winput - self.learning_rate * dWin - 2 * self.alfa * (self.Winput / len(Y))
+        self.W = self.W - self.learning_rate * dW + self.W - 2 * self.alfa * (self.W / len(Y))
+        self.Woutput = self.Woutput - self.learning_rate * dWout - 2 * self.alfa * (self.Woutput / len(Y))
 
     # A method that trains the recurrent neural network by performing the forward pass and the truncated backpropagation
     # through time and that updates the weight matrices.
@@ -287,12 +287,10 @@ class RNN:
         #  Computation of the outputs with the use of the prime array, the same way as in the forward function.
         for i in range (len(U)):
             u = U[i]
-            print("x", x)
             x = self.state(x, u)
             yHat = np.dot(self.Woutput, x)
             yHat = self.sigmoid(yHat)
             hidden_states.append(x)
-            print("YHat: ",yHat)
             preds.append(yHat)
         # Computation of the outputs in which the previous output is used as the new input.
         for j in range(len(U), 100):
@@ -312,14 +310,12 @@ rnnRun = rnn
 # the number until the testing loss no longer decreases.
 epoch = 0
 previous_Testloss = 10000
-    #rnn.checkLoss(vector_array_u_test, vector_array_y_test)
-testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test) #previous_Testloss
+prev_loss = 10000
+testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
 trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
-print(testLoss, trainLoss)
-prev_loss = 10000 #trainLoss
 testLosses = []
 trainingLosses = []
-while previous_Testloss > testLoss:
+while previous_Testloss >= testLoss:
     epoch += 1
     trainingLosses.append(trainLoss)
     testLosses.append(testLoss)
@@ -343,6 +339,8 @@ for i in range(5):
     trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
 
+testLosses = np.reshape(testLosses, (len(testLosses)))
+trainingLosses = np.reshape(trainingLosses, (len(trainingLosses)))
 plot_losses(testLosses, trainingLosses, n)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
