@@ -126,10 +126,10 @@ class RNN:
         self.vocab_size = 2
         self.learning_rate = 0.001
 
-        self.bptt_truncate = 5
+        self.bptt_truncate = 50
         self.min_clip_value = -1
         self.max_clip_value = 1
-        self.alfa = 20
+        self.alfa = 5
 
         self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/(self.vocab_size - 1))
         self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
@@ -142,8 +142,7 @@ class RNN:
 
     # A method that applies the derivative of the sigmoid function.
     def sigmoidPrime(self, x):
-        y = self.sigmoid(x)
-        return y*(1-y)
+        return x*(1-x)
 
     # A method applies the sigmoid function.
     def sigmoid(self, x):
@@ -168,13 +167,13 @@ class RNN:
         # Initialization of the loss vector with zeros:
         loss = 0
         # Computation for each timestamp of the loss (Yhat - Y)^2:
-        for i in range(len(Y)):
+        for i in range(len(Y)-1):
             yHat, y = YHat[i], Y[i]
             #yHat = np.reshape(yHat, (2, 1))
             #y = np.reshape(y, (2, 1))
-            d = abs(y-yHat)
-            d1 = np.transpose(d)
-            dot = np.dot(d1, d)
+            d = abs(yHat-y)
+
+            dot = np.dot(d.T, d)
             loss += dot
 
         # Averaging of the loss to get the mean squared error:
@@ -201,50 +200,33 @@ class RNN:
     # A method that performs truncated back propagation through time.
     # The gradients of the weight matrices are computed with the use of the derivative of the loss.
     def backprop(self, yHat, U, x, Y):
-        # Initialization of the gradients with zeros:
         dWin = np.zeros(self.Winput.shape)
         dWout = np.zeros(self.Woutput.shape)
         dW = np.zeros(self.W.shape)
 
-        # Computation of the derivative of the loss:
-        delta_loss = 2 * (yHat - Y)
+        delta_loss = 2 * (abs(yHat - Y))
         delta_loss = np.array(delta_loss)
-        #print(np.shape(delta_loss))
-        # For each computed output, the gradients are computed.
 
-        for t in range(len(Y)):
-            print(x[t].shape)
-            dWout += np.outer(delta_loss[t], x[t].T)
+        for t in range(len(Y))[::-1]: #deze loop gaat van len(Y) met stapjes van 1 naar 0
+            dWout += np.outer(delta_loss[t], x[t])  #outer klopt en transpose niet nodig
+            delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
+            #delta_t *= self.sigmoidPrime(x[t]) # we doen hier toch * want dot ging fout (is een getal niet een vector)
 
-            #delta_t = np.dot(delta_loss[t], self.Woutput)
-            #print(delta_t.shape)
+            maximum = max(0, t-self.bptt_truncate)
+            for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
+                dW += np.outer(delta_t, x[timestep - 1])
+                dWin += np.outer(delta_t, U[timestep])
+                delta_t = np.dot(np.transpose(self.W), delta_t)
+                delta_t = delta_t * self.sigmoidPrime(x[timestep-1])
 
+            dW /= (t+1-maximum)
+            dWin /= (t+1-maximum)
 
-            # The truncated loop, it does not go back through all the states but it goes back as many steps as the
-            # bptt_truncate value:
-            dWx = np.zeros((self.hidden_size, 1))
-            dWinx = np.zeros((self.hidden_size, 1))
-
-            for timestep in range(t-1, max(-1, t-self.bptt_truncate-1), -1):
-                print('hello')
-                dWx = dWx + np.dot(self.W.T, x[timestep])
-                dWinx = dWinx + np.dot(self.W.T, U[timestep])
-            print(dWinx)
-
-            # Averaging of the gradients:
-            maximum = t-self.bptt_truncate-1
-            dWx = dWx / (t - 1 - maximum)
-            dWinx = dWinx / (t - 1 - maximum)
-
-            dW = np.dot(delta_loss[t], np.dot(self.Woutput, dWx))
-            dWin = np.dot(delta_loss[t], np.dot(self.Woutput, dWinx))
-            #dWout = dWout_t
-
-        # Averaging of the gradients:
-        dWin = dWin / len(Y)
-        dW = dW / len(Y)
-        dWout = dWout /len(Y)
+        dWin /= len(Y)
+        dW /= len(Y)
+        dWout /= len(Y)
         return dWin, dW, dWout
+
 
     # A method that updates the weight matrices.
     def updateWeights(self, dWin, dW, dWout, Y):
@@ -304,8 +286,6 @@ class RNN:
 # A recurrent neural network is initialized and copied to be used for cross validation.
 rnn = RNN()
 rnnRun = deepcopy(rnn)
-if rnn is rnnRun:
-    print('it is the same RNN')
 
 # A loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
 # the number until the testing loss no longer decreases.
@@ -314,6 +294,7 @@ previous_Testloss = 10000
 prev_loss = 10000
 testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
 trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
+
 testLosses = []
 trainingLosses = []
 while previous_Testloss >= testLoss:
@@ -328,11 +309,6 @@ while previous_Testloss >= testLoss:
     print('Epoch: ', epoch, ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
 n = epoch
-
-if rnn is rnnRun:
-    print('it is the same RNN')
-else:
-    print('not the same anymore')
 
 # The training is run for some more epochs to show in the model flexibility plot.
 for i in range(5):
