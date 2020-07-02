@@ -6,8 +6,9 @@ from copy import deepcopy
 # The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
 # training data.
-vector_array_u_train = []
-vector_array_y_train = []
+vector_array_u_train = np.empty(shape=(1007, 2, 1))
+vector_array_y_train = np.empty(shape=(1007, 2, 1))
+vector = np.empty(shape=(2, 1, 1))
 with open('sunday.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
@@ -16,9 +17,8 @@ with open('sunday.csv', newline='') as f:
     loudness1 = 0
     loudness2 = 0
     quarter_notes = int(data[line_count][1]) / 192
-    sixteenth_notes = quarter_notes
     for i in range(0, 464):
-        while int(sixteenth_notes) == i:
+        while int(quarter_notes) == i:
 
             if int(data[line_count][4]) == 38:
                 loudness1 = data[line_count][5]
@@ -27,11 +27,9 @@ with open('sunday.csv', newline='') as f:
             line_count += 1
 
             quarter_notes = int(data[line_count][1]) / 192
-            sixteenth_notes = quarter_notes
 
-        vector = [float(loudness1)/127, float(loudness2)/127]
-        print(vector)
-        vector_array_u_train.append(vector)
+        vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
+        vector_array_u_train[i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
@@ -46,9 +44,8 @@ with open('follow.csv', newline='') as f:
     loudness1 = 0
     loudness2 = 0
     quarter_notes = int(data[line_count][1]) / 120
-    sixteenth_notes = quarter_notes
     for i in range(0, 543):
-        while int(sixteenth_notes) == i:
+        while int(quarter_notes) == i:
 
             if int(data[line_count][4]) == 38:
                 loudness1 = data[line_count][5]
@@ -57,22 +54,17 @@ with open('follow.csv', newline='') as f:
             line_count += 1
 
             quarter_notes = int(data[line_count][1]) / 120
-            sixteenth_notes = quarter_notes
 
-        vector = [int(loudness1)/127, int(loudness2)/127]
-        print(vector)
-        vector_array_u_train.append(vector)
+        vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
+        vector_array_u_train[464 + i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
     for j in range(1, len(vector_array_u_train)):
-        vector_array_y_train.append(vector_array_u_train[j])
+        vector_array_y_train[j-1] = vector_array_u_train[j]
 
-    vector_array_u_train = np.array(vector_array_u_train)
-    vector_array_y_train = np.array(vector_array_y_train)
-
-vector_array_u_test = []
-vector_array_y_test = []
+vector_array_u_test = np.empty(shape=(407, 2, 1))
+vector_array_y_test = np.empty(shape=(407, 2, 1))
 
 # The csv file containing the information of the song 'pride' of U2 is transformed to a  407 by 2 matrix,
 # representing for each of the 407 timestamps the drum hits of two different drums. This matrix is used as
@@ -85,9 +77,8 @@ with open('pride.csv', newline='') as f:
     loudness1 = 0
     loudness2 = 0
     quarter_notes = int(data[line_count][1]) / 480
-    sixteenth_notes = quarter_notes
     for i in range(0, 407):
-        while int(sixteenth_notes) == i:
+        while int(quarter_notes) == i:
 
             if int(data[line_count][4]) == 38:
                 loudness1 = data[line_count][5]
@@ -96,20 +87,15 @@ with open('pride.csv', newline='') as f:
             line_count += 1
 
             quarter_notes = int(data[line_count][1]) / 480
-            sixteenth_notes = quarter_notes
 
-        vector = [int(loudness1)/127, int(loudness2)/127]
-        print(vector)
-        vector_array_u_test.append(vector)
+        vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
+        vector_array_u_test[i] = vector.T
 
         loudness1 = 0
         loudness2 = 0
 
     for j in range(1, len(vector_array_u_test)):
-        vector_array_y_test.append(vector_array_u_test[j])
-
-    vector_array_u_test = np.array(vector_array_u_test)
-    vector_array_y_test = np.array(vector_array_y_test)
+        vector_array_y_test[j-1] = vector_array_u_test[j]
 
 
 # A method that plots the testing loss and the training loss in one graph with on the y-axis the loss and on the x-axis the
@@ -165,7 +151,7 @@ class RNN:
 
     # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b).
     def state(self, x, u):
-        u = np.reshape(u, (2,1))
+        # u = np.reshape(u, (2,1))
         mulu = np.dot(self.Winput, u)
         mulx = np.dot(self.W, x)
         add = np.add(mulu, mulx)
@@ -184,8 +170,8 @@ class RNN:
         # Computation for each timestamp of the loss (Yhat - Y)^2:
         for i in range(len(Y)):
             yHat, y = YHat[i], Y[i]
-            yHat = np.reshape(yHat, (2, 1))
-            y = np.reshape(y, (2, 1))
+            #yHat = np.reshape(yHat, (2, 1))
+            #y = np.reshape(y, (2, 1))
             d = abs(y-yHat)
             d1 = np.transpose(d)
             dot = np.dot(d1, d)
@@ -221,50 +207,38 @@ class RNN:
         dW = np.zeros(self.W.shape)
 
         # Computation of the derivative of the loss:
-        print(yHat)
         delta_loss = 2 * (yHat - Y)
         delta_loss = np.array(delta_loss)
         #print(np.shape(delta_loss))
         # For each computed output, the gradients are computed.
 
-        for t in range(len(Y))[::-1]:
-            dWout = dWout + np.outer(delta_loss[t], x[t])
-            delta_t = np.dot(delta_loss[t], self.Woutput)
-            #delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
-            #delta_t = delta_t * self.sigmoidPrime(x[t])
+        for t in range(len(Y)):
+            print(x[t].shape)
+            dWout += np.outer(delta_loss[t], x[t].T)
+
+            #delta_t = np.dot(delta_loss[t], self.Woutput)
+            #print(delta_t.shape)
+
 
             # The truncated loop, it does not go back through all the states but it goes back as many steps as the
             # bptt_truncate value:
-            maximum = max(0, t-self.bptt_truncate)
             dWx = np.zeros((self.hidden_size, 1))
             dWinx = np.zeros((self.hidden_size, 1))
 
-            for timestep in np.arange(maximum, t+1)[::-1]:
-                print(np.shape(x[timestep - 1]))
-                dot1 = np.dot(np.transpose(self.W), x[timestep - 1])
-                dot1 = np.reshape(dot1, (self.hidden_size, 1))
-                dWx = np.add(dWx, dot1)
-                #print(np.shape(dWx))
-                #print(np.shape(np.matmul(np.transpose(self.W), x[timestep - 1])))
-                #print('dWx:', np.shape(dWx))
-                     #np.dot(np.transpose(self.W), x[timestep - 1])
-                #print(np.shape(dWx))
-                #print('dWinx before:', np.shape(dWinx))
-                dot2 = np.dot(self.Winput, U[timestep - 1])
-                dot2 = np.reshape(dot2, (self.hidden_size, 1))
-                dWinx = np.add(dWinx, dot2)
-                #print(np.shape(dWinx))
-                #print('dot:', np.shape(np.dot(self.Winput, U[timestep - 1])))
-                #print('dWinx after:', np.shape(dWinx))
-                #delta_t = np.dot(np.transpose(self.W), delta_t)
-                #delta_t = delta_t * self.sigmoidPrime(x[timestep-1])
+            for timestep in range(t-1, max(-1, t-self.bptt_truncate-1), -1):
+                print('hello')
+                dWx = dWx + np.dot(self.W.T, x[timestep])
+                dWinx = dWinx + np.dot(self.W.T, U[timestep])
+            print(dWinx)
 
             # Averaging of the gradients:
-            dWx = dWx / (t+1-maximum)
-            dWinx = dWinx / (t+1-maximum)
+            maximum = t-self.bptt_truncate-1
+            dWx = dWx / (t - 1 - maximum)
+            dWinx = dWinx / (t - 1 - maximum)
 
-            dW = delta_t * dWx
-            dWin = delta_t * dWinx
+            dW = np.dot(delta_loss[t], np.dot(self.Woutput, dWx))
+            dWin = np.dot(delta_loss[t], np.dot(self.Woutput, dWinx))
+            #dWout = dWout_t
 
         # Averaging of the gradients:
         dWin = dWin / len(Y)
@@ -299,8 +273,8 @@ class RNN:
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
         yHat, hidden_states = self.forward(U, x, Y)
-        yHat = np.reshape(yHat, (len(Y), self.vocab_size))
-        hidden_states = np.reshape(hidden_states, (len(Y), self.hidden_size))
+        #yHat = np.reshape(yHat, (len(Y), self.vocab_size))
+        #hidden_states = np.reshape(hidden_states, (len(Y), self.hidden_size))
         dWin, dW, dWout = self.backprop(yHat, U, hidden_states, Y)
         self.updateWeights(dWin, dW, dWout, Y)
 

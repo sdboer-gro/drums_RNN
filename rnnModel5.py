@@ -127,23 +127,25 @@ def plot_losses(testingLoss, trainingLoss, epoch):
     plt.show()
 
 
-
-
 class RNN:
     def __init__(self):
 
         self.hidden_size = 176
         self.vocab_size = 2
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0001
 
         self.bptt_truncate = 5
-        self.min_clip_value = -1   #uitproberen met trial and error
-        self.max_clip_value = 1    #uitproberen met trial and error
+        self.min_clip_value = -10   #uitproberen met trial and error
+        self.max_clip_value = 10    #uitproberen met trial and error
         self.alfa = 2
 
-        self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
-        self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
-        self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
+        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/(self.vocab_size - 1))
+        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
+        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
+
+        #self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
+        #self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
+        #self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
 
         self.b = np.ones((self.hidden_size, 1))
 
@@ -165,20 +167,21 @@ class RNN:
     def checkLoss(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
         YHat, _ = self.forward(U, x, Y)
-        loss = np.zeros((self.vocab_size, 1))
+        loss = 0
         for i in range(len(Y)):
             yHat, y = YHat[i], Y[i]
             yHat = np.reshape(yHat, (2, 1))
             y = np.reshape(y, (2, 1))
-
-            loss += (abs(y-yHat))**2
+            d = y - yHat
+            d1 = np.transpose(d)
+            loss += np.dot(d1, d)
         risk = loss / len(Y)
         return risk
 
     def forward(self, U, x, Y):
         preds = []
         hidden_states = []
-        for i in range (len(Y)): #lenY is the number of samples
+        for i in range(len(Y)): #lenY is the number of samples
             u, y = U[i], Y[i]
             x = self.state(x, u)
             #print("xshape", x.shape)
@@ -199,7 +202,7 @@ class RNN:
         for t in range(len(Y))[::-1]: #deze loop gaat van len(Y) met stapjes van 1 naar 0
             dWout += np.outer(delta_loss[t], x[t])  #outer klopt en transpose niet nodig
             delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
-            delta_t *= self.sigmoidPrime(x[t]) # we doen hier toch * want dot ging fout (is een getal niet een vector)
+            #delta_t *= self.sigmoidPrime(x[t]) # we doen hier toch * want dot ging fout (is een getal niet een vector)
 
             maximum = max(0, t-self.bptt_truncate)
             for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
@@ -220,7 +223,7 @@ class RNN:
         self.Winput += (2 * self.alfa * (self.Winput / len(Y)))
         self.W +=  (2 * self.alfa * (self.W / len(Y)))
         self.Woutput += (2 * self.alfa * (self.Woutput / len(Y)))
-        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
+
 
     def updateWeights(self, dWin, dW, dWout, Y):
         #preventing from exploding gradient problem:
@@ -238,8 +241,6 @@ class RNN:
         if dWout.min() < self.min_clip_value:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
 
-        #updating: + alfa w'w???
-        print("winput", self.Winput, "W", self.W, "Woutput", self.Woutput)
         self.Winput = self.Winput - self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y))
         self.W = self.W - self.learning_rate * dW + 2 * self.alfa * (self.W / len(Y))
         self.Woutput = self.Woutput - self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y))
@@ -259,7 +260,7 @@ class RNN:
         hidden_states = []
         preds = []
         x = np.zeros((self.hidden_size, 1))
-        for i in range (len(U)):
+        for i in range(len(U)):
             u = U[i]
             print("x", x)
             x = self.state(x, u)
@@ -290,10 +291,10 @@ trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
 prev_loss = trainLoss
 testLosses = []
 trainingLosses = []
-while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1]):
+while previous_Testloss >= testLoss:
     epoch += 1
-    trainingLosses.append(trainLoss[0] + trainLoss[1])
-    testLosses.append(testLoss[0] + testLoss[1])
+    trainingLosses.append(trainLoss)
+    testLosses.append(testLoss)
     prev_loss = trainLoss
     previous_Testloss = testLoss
     rnn.training(vector_array_u_train, vector_array_y_train)
@@ -301,11 +302,9 @@ while (previous_Testloss[0] + previous_Testloss[1] >= testLoss[0] + testLoss[1])
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
     print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
-#rnn.lastWUpdate(vector_array_y_train)
-#plot_losses(testLosses, trainingLosses, epoch)
 
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
-vector_array_y_test_train = np.append(vector_array_y_train, vector_array_y_test, axis=0)
+vector_array_y_test_train = np.append(vector_array_y_test, vector_array_y_train, axis=0)
 print("trainu :", vector_array_u_train)
 print("testtrainu :", vector_array_u_test_train)
 
@@ -314,10 +313,6 @@ for i in range(epoch):
     loss = rnnRun.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
 
-#RnnRun.lastWUpdate(vector_array_y_test_train)
-    #rnnRun.Winput += rnnRun.alfa * rnnRun.Winput
-#rnnRun.W += rnnRun.alfa * np.dot(rnnRun.W, np.transpose(rnnRun.W))
-#rnnRun.Woutput += rnnRun.alfa * rnnRun.Woutput
 
 vector_array_prime = []
 

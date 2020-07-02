@@ -1,7 +1,6 @@
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-from copy import deepcopy
 
 # The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
@@ -128,7 +127,6 @@ def plot_losses(testingLoss, trainingLoss, epoch):
     fig.savefig("flexibility.png")
     plt.show()
 
-
 # A class defining a recurrent neural network (RNN).
 class RNN:
     # The constructor of an RNN. The hidden size, vocab size, learning rate, truncated back propagation through time
@@ -136,18 +134,18 @@ class RNN:
     # vector are initialized here.
     def __init__(self):
 
-        self.hidden_size = 176
+        self.hidden_size = 170
         self.vocab_size = 2
-        self.learning_rate = 0.001
+        self.learning_rate = 0.005
 
-        self.bptt_truncate = 5
+        self.bptt_truncate = 30
         self.min_clip_value = -1
         self.max_clip_value = 1
         self.alfa = 20
 
-        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/(self.vocab_size - 1))
-        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
-        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
+        self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
+        self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
+        self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
         #self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
         #self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
         #self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
@@ -221,55 +219,34 @@ class RNN:
         dW = np.zeros(self.W.shape)
 
         # Computation of the derivative of the loss:
-        print(yHat)
-        delta_loss = 2 * (yHat - Y)
+        delta_loss = 2 * (abs(yHat - Y))
         delta_loss = np.array(delta_loss)
-        #print(np.shape(delta_loss))
-        # For each computed output, the gradients are computed.
+        print(delta_loss.shape)
 
+        # For each computed output, the gradients are computed.
         for t in range(len(Y))[::-1]:
-            dWout = dWout + np.outer(delta_loss[t], x[t])
-            delta_t = np.dot(delta_loss[t], self.Woutput)
-            #delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
-            #delta_t = delta_t * self.sigmoidPrime(x[t])
+            print(x[t].shape)
+            dWout += np.outer(delta_loss[t], x[t])
+            delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
+            delta_t *= self.sigmoidPrime(x[t])
 
             # The truncated loop, it does not go back through all the states but it goes back as many steps as the
             # bptt_truncate value:
             maximum = max(0, t-self.bptt_truncate)
-            dWx = np.zeros((self.hidden_size, 1))
-            dWinx = np.zeros((self.hidden_size, 1))
-
             for timestep in np.arange(maximum, t+1)[::-1]:
-                print(np.shape(x[timestep - 1]))
-                dot1 = np.dot(np.transpose(self.W), x[timestep - 1])
-                dot1 = np.reshape(dot1, (self.hidden_size, 1))
-                dWx = np.add(dWx, dot1)
-                #print(np.shape(dWx))
-                #print(np.shape(np.matmul(np.transpose(self.W), x[timestep - 1])))
-                #print('dWx:', np.shape(dWx))
-                     #np.dot(np.transpose(self.W), x[timestep - 1])
-                #print(np.shape(dWx))
-                #print('dWinx before:', np.shape(dWinx))
-                dot2 = np.dot(self.Winput, U[timestep - 1])
-                dot2 = np.reshape(dot2, (self.hidden_size, 1))
-                dWinx = np.add(dWinx, dot2)
-                #print(np.shape(dWinx))
-                #print('dot:', np.shape(np.dot(self.Winput, U[timestep - 1])))
-                #print('dWinx after:', np.shape(dWinx))
-                #delta_t = np.dot(np.transpose(self.W), delta_t)
-                #delta_t = delta_t * self.sigmoidPrime(x[timestep-1])
+                dW += np.outer(delta_t, x[timestep - 1])
+                dWin += np.outer(delta_t, U[timestep])
+                delta_t = np.dot(np.transpose(self.W), delta_t)
+                delta_t *= self.sigmoidPrime(x[timestep-1])
 
             # Averaging of the gradients:
-            dWx = dWx / (t+1-maximum)
-            dWinx = dWinx / (t+1-maximum)
-
-            dW = delta_t * dWx
-            dWin = delta_t * dWinx
+            dW /= (t+1-maximum)
+            dWin /= (t+1-maximum)
 
         # Averaging of the gradients:
-        dWin = dWin / len(Y)
-        dW = dW / len(Y)
-        dWout = dWout /len(Y)
+        dWin /= len(Y)
+        dW /= len(Y)
+        dWout /= len(Y)
         return dWin, dW, dWout
 
     # A method that updates the weight matrices.
@@ -291,7 +268,7 @@ class RNN:
 
         # Updates the weights with the gradients and applies the ridge regression:
         self.Winput = self.Winput - self.learning_rate * dWin - 2 * self.alfa * (self.Winput / len(Y))
-        self.W = self.W - self.learning_rate * dW - 2 * self.alfa * (self.W / len(Y))
+        self.W = self.W - self.learning_rate * dW + self.W - 2 * self.alfa * (self.W / len(Y))
         self.Woutput = self.Woutput - self.learning_rate * dWout - 2 * self.alfa * (self.Woutput / len(Y))
 
     # A method that trains the recurrent neural network by performing the forward pass and the truncated backpropagation
@@ -329,9 +306,7 @@ class RNN:
 
 # A recurrent neural network is initialized and copied to be used for cross validation.
 rnn = RNN()
-rnnRun = deepcopy(rnn)
-if rnn is rnnRun:
-    print('it is the same RNN')
+rnnRun = rnn
 
 # A loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
 # the number until the testing loss no longer decreases.
@@ -351,16 +326,11 @@ while previous_Testloss >= testLoss:
     rnn.training(vector_array_u_train, vector_array_y_train)
     trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
     testLoss = rnn.checkLoss(vector_array_u_test, vector_array_y_test)
-    print('Epoch: ', epoch, ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
+    print('Epoch: ', epoch , ', Loss: ', trainLoss, ', Val Loss: ', testLoss)
 
 n = epoch
 
-if rnn is rnnRun:
-    print('it is the same RNN')
-else:
-    print('not the same anymore')
-
-# The training is run for some more epochs to show in the model flexibility plot.
+ # The training is run for some more epochs to show in the model flexibility plot.
 for i in range(5):
     n += 1
     trainingLosses.append(trainLoss)
@@ -378,12 +348,10 @@ plot_losses(testLosses, trainingLosses, n)
 vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
 vector_array_y_test_train = np.append(vector_array_y_test, vector_array_y_train, axis=0)
 
-print(vector_array_u_test_train, vector_array_y_test_train)
-
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
     rnnRun.training(vector_array_u_test_train, vector_array_y_test_train)
-    loss = rnnRun.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
+    loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
 
 
@@ -427,7 +395,6 @@ with open('result.csv', 'w') as f:
 
 
 '''midi = py_midicsv.csv_to_midi('result.csv')
-
 # the csv file containing the information of the output is transformed into a midi file.
 with open("result.mid", "wb") as output_file:
     midi_writer = py_midicsv.FileWriter(output_file)
