@@ -308,6 +308,7 @@ class RNN:
 rnn = RNN()
 rnnRun = rnn
 
+print(rnn.W)
 # A loop to compute the number of epochs that prevents from overfitting. This number of epochs is computed by increasing
 # the number until the testing loss no longer decreases.
 epoch = 0
@@ -354,6 +355,7 @@ for i in range(epoch):
     loss = rnn.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
 
+print(rnnRun.W)
 
 # The prime array is created with a part from the whole data array:
 vector_array_prime = []

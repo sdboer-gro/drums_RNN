@@ -7,8 +7,11 @@ from copy import deepcopy
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
 # training data.
 vector_array_u_train = np.empty(shape=(1007, 2, 1))
-vector_array_y_train = np.empty(shape=(1007, 2, 1))
+vector_array_y_train = np.empty(shape=(1006, 2, 1))
+vector_array_u_test_train = np.empty(shape=(1414, 2, 1))
+vector_array_y_test_train = np.empty(shape=(1413, 2, 1))
 vector = np.empty(shape=(2, 1, 1))
+vector_array_prime = np.empty(shape=(30, 2, 1))
 with open('sunday.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
@@ -30,6 +33,9 @@ with open('sunday.csv', newline='') as f:
 
         vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
         vector_array_u_train[i] = vector.T
+        vector_array_u_test_train[i] = vector.T
+        #if i < 30:
+        #    vector_array_prime[i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
@@ -57,14 +63,18 @@ with open('follow.csv', newline='') as f:
 
         vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
         vector_array_u_train[464 + i] = vector.T
+        vector_array_u_test_train[464 + i] = vector.T
+        if i < 30:
+            vector_array_prime[i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
     for j in range(1, len(vector_array_u_train)):
         vector_array_y_train[j-1] = vector_array_u_train[j]
+        vector_array_y_test_train[j-1] = vector_array_u_test_train[j]
 
 vector_array_u_test = np.empty(shape=(407, 2, 1))
-vector_array_y_test = np.empty(shape=(407, 2, 1))
+vector_array_y_test = np.empty(shape=(406, 2, 1))
 
 # The csv file containing the information of the song 'pride' of U2 is transformed to a  407 by 2 matrix,
 # representing for each of the 407 timestamps the drum hits of two different drums. This matrix is used as
@@ -90,12 +100,14 @@ with open('pride.csv', newline='') as f:
 
         vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
         vector_array_u_test[i] = vector.T
+        vector_array_u_test_train[871 + i] = vector.T
 
         loudness1 = 0
         loudness2 = 0
 
     for j in range(1, len(vector_array_u_test)):
         vector_array_y_test[j-1] = vector_array_u_test[j]
+        vector_array_y_test_train[871 + j - 1] = vector_array_u_test_train[871 + j]
 
 
 # A method that plots the testing loss and the training loss in one graph with on the y-axis the loss and on the x-axis the
@@ -124,7 +136,7 @@ class RNN:
 
         self.hidden_size = 176
         self.vocab_size = 2
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0005
 
         self.bptt_truncate = 50
         self.min_clip_value = -1
@@ -134,15 +146,12 @@ class RNN:
         self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/(self.vocab_size - 1))
         self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
         self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/(self.hidden_size - 1))
-        #self.Winput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.vocab_size))
-        #self.W = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.hidden_size, self.hidden_size))
-        #self.Woutput = np.random.uniform(-np.sqrt(1./self.vocab_size), np.sqrt(1./self.vocab_size), (self.vocab_size, self.hidden_size))
 
         self.b = np.ones((self.hidden_size, 1))
 
     # A method that applies the derivative of the sigmoid function.
     def sigmoidPrime(self, x):
-        return x*(1-x)
+        return x * (1 - x)
 
     # A method applies the sigmoid function.
     def sigmoid(self, x):
@@ -167,12 +176,9 @@ class RNN:
         # Initialization of the loss vector with zeros:
         loss = 0
         # Computation for each timestamp of the loss (Yhat - Y)^2:
-        for i in range(len(Y)-1):
+        for i in range(len(Y)):
             yHat, y = YHat[i], Y[i]
-            #yHat = np.reshape(yHat, (2, 1))
-            #y = np.reshape(y, (2, 1))
             d = abs(yHat-y)
-
             dot = np.dot(d.T, d)
             loss += dot
 
@@ -188,7 +194,7 @@ class RNN:
         # For each timestamp an output array (yHat) and the hidden states are computed, the output arrays are added to
         # the prediction array and the hidden states are added to the hidden states array for later use in the truncated
         # back propagation through time.
-        for i in range (len(Y)):
+        for i in range(len(Y)):
             u, y = U[i], Y[i]
             x = self.state(x, u)
             yHat = np.dot(self.Woutput, x)
@@ -207,8 +213,8 @@ class RNN:
         delta_loss = 2 * (abs(yHat - Y))
         delta_loss = np.array(delta_loss)
 
-        for t in range(len(Y))[::-1]: #deze loop gaat van len(Y) met stapjes van 1 naar 0
-            dWout += np.outer(delta_loss[t], x[t])  #outer klopt en transpose niet nodig
+        for t in range(len(Y))[::-1]:
+            dWout += np.outer(delta_loss[t], x[t])
             delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
             #delta_t *= self.sigmoidPrime(x[t]) # we doen hier toch * want dot ging fout (is een getal niet een vector)
 
@@ -255,8 +261,6 @@ class RNN:
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
         yHat, hidden_states = self.forward(U, x, Y)
-        #yHat = np.reshape(yHat, (len(Y), self.vocab_size))
-        #hidden_states = np.reshape(hidden_states, (len(Y), self.hidden_size))
         dWin, dW, dWout = self.backprop(yHat, U, hidden_states, Y)
         self.updateWeights(dWin, dW, dWout, Y)
 
@@ -264,22 +268,25 @@ class RNN:
     def prediction(self, U):
         hidden_states = []
         preds = []
-        x = np.zeros((self.hidden_size, 1))
+        prev_x = np.zeros((self.hidden_size, 1))
         #  Computation of the outputs with the use of the prime array, the same way as in the forward function.
         for i in range (len(U)):
             u = U[i]
-            x = self.state(x, u)
+            x = self.state(prev_x, u)
             yHat = np.dot(self.Woutput, x)
             yHat = self.sigmoid(yHat)
             hidden_states.append(x)
             preds.append(yHat)
+            prev_x = x
         # Computation of the outputs in which the previous output is used as the new input.
         for j in range(len(U), 100):
-            x = self.state(x, yHat)
-            yHat = np.dot(self.Woutput, x)
-            yHat = self.sigmoid(yHat)
+            u = yHat
+            x = self.state(prev_x, u)
+            out = np.dot(self.Woutput, x)
+            yHat = self.sigmoid(out)
             hidden_states.append(x)
             preds.append(yHat)
+            prev_x = x
         return np.array(preds)
 
 
@@ -323,12 +330,7 @@ for i in range(5):
 
 testLosses = np.reshape(testLosses, (len(testLosses)))
 trainingLosses = np.reshape(trainingLosses, (len(trainingLosses)))
-plot_losses(testLosses, trainingLosses, n)
-
-vector_array_u_test_train = np.append(vector_array_u_test, vector_array_u_train, axis=0)
-vector_array_y_test_train = np.append(vector_array_y_test, vector_array_y_train, axis=0)
-
-print(vector_array_u_test_train, vector_array_y_test_train)
+#plot_losses(testLosses, trainingLosses, n)
 
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
@@ -336,16 +338,8 @@ for i in range(epoch):
     loss = rnnRun.checkLoss(vector_array_u_test_train, vector_array_y_test_train)
     print('Epoch: ', i, ', Loss: ', loss)
 
-
-# The prime array is created with a part from the whole data array:
-vector_array_prime = []
-for i in range(10, 30):
-    vector_array_prime.append(vector_array_u_test_train[i])
-vector_array_prime = np.array(vector_array_prime)
-
 # The computation of the output with the use of the prime array:
 result = rnnRun.prediction(vector_array_prime)
-result = np.reshape(result, (len(result), rnnRun.vocab_size))
 
 for i in range(0, len(result)):
     y = result[i]
