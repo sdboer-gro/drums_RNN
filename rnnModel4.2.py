@@ -4,16 +4,21 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 from scipy.special import expit, logit
 
-# The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
-# representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
-# training data.
+# The arrays for the training dataset, the test dataset, the combined dataset
+# and the prime dataset are initialized using numpy arrays.
 vector_array_u_train = np.empty(shape=(1007, 2, 1))
 vector_array_y_train = np.empty(shape=(1006, 2, 1))
+vector_array_u_test = np.empty(shape=(407, 2, 1))
+vector_array_y_test = np.empty(shape=(406, 2, 1))
 vector_array_u_test_train = np.empty(shape=(1414, 2, 1))
 vector_array_y_test_train = np.empty(shape=(1413, 2, 1))
 vector = np.empty(shape=(2, 1, 1))
 vector_array_prime_u = np.empty(shape=(30, 2, 1))
 vector_array_prime_y = np.empty(shape=(29, 2, 1))
+# The csv file containing the information of the song 'Sunday Bloody Sunday' of U2 is added to the
+# train and the combined datasets.
+# For each of the 464 timestamps the loudness of two different drums is added to the arrays.
+# The prime array is filled with the first 30 vectors of the train dataset.
 with open('sunday.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
@@ -36,14 +41,17 @@ with open('sunday.csv', newline='') as f:
         vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
         vector_array_u_train[i] = vector.T
         vector_array_u_test_train[i] = vector.T
-        #if i < 30:
-        #    vector_array_prime[i] = vector.T
+        if i < 30:
+            vector_array_prime_u[i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
-# The csv file containing the information of the song 'follow' of U2 is transformed to a 543 by 2 matrix,
-# representing for each of the 543 timestamps the drum hits of two different drums. This matrix is also
-# used as training data.
+    for j in range(1, len(vector_array_prime_u)):
+        vector_array_prime_y[j-1] = vector_array_prime_u[j]
+
+# The csv file containing the information of the song 'I will follow' of U2 is is added to the
+# train and the combined datasets.
+# For each of the 534 timestamps the loudness of two different drums is added to the arrays.
 with open('follow.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
@@ -66,8 +74,6 @@ with open('follow.csv', newline='') as f:
         vector = np.array([[int(loudness1) / 127, int(loudness2) / 127]])
         vector_array_u_train[464 + i] = vector.T
         vector_array_u_test_train[464 + i] = vector.T
-        if i < 30:
-            vector_array_prime_u[i] = vector.T
         loudness1 = 0
         loudness2 = 0
 
@@ -75,16 +81,8 @@ with open('follow.csv', newline='') as f:
         vector_array_y_train[j-1] = vector_array_u_train[j]
         vector_array_y_test_train[j-1] = vector_array_u_test_train[j]
 
-    for j in range(1, len(vector_array_prime_u)):
-        vector_array_prime_y[j-1] = vector_array_prime_u[j]
-
-
-vector_array_u_test = np.empty(shape=(407, 2, 1))
-vector_array_y_test = np.empty(shape=(406, 2, 1))
-
-# The csv file containing the information of the song 'pride' of U2 is transformed to a  407 by 2 matrix,
-# representing for each of the 407 timestamps the drum hits of two different drums. This matrix is used as
-# testing data.
+# The csv file containing the information of the song 'pride' of U2 is added to the test and combined datasets.
+# For each of the 407 timestamps the loudness of two different drums is added to the arrays.
 with open('pride.csv', newline='') as f:
     reader = csv.reader(f)
     data = [r for r in reader]
@@ -116,8 +114,8 @@ with open('pride.csv', newline='') as f:
         vector_array_y_test_train[871 + j - 1] = vector_array_u_test_train[871 + j]
 
 
-# A method that plots the testing loss and the training loss in one graph with on the y-axis the loss and on the x-axis the
-# number of epochs.
+# A method that plots the testing loss and the training loss in one graph with on the y-axis the loss and
+# on the x-axis the number of epochs.
 def plot_losses(testingLoss, trainingLoss, epoch):
     t = np.linspace(0.0, epoch, epoch)
     fig, ax = plt.subplots()
@@ -161,7 +159,7 @@ class RNN:
 
     # A method applies the sigmoid function.
     def sigmoid(self, x):
-        return(expit(x))
+        return expit(x)
 
     # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b).
     def state(self, x, u):
@@ -192,13 +190,13 @@ class RNN:
         return risk
 
     # A method that performs the forward pass in the recurrent neural network. The function
-    # y[n] = sigmoid(Wout*sigmoid(W*x[n-1]+Win[n] + b)) is applied.
+    # y[n] = sigmoid(Wout*sigmoid(W*x[n-1] + Win[n] + b)) is applied.
     def forward(self, U, x, Y):
         preds = []
         hidden_states = []
-        # For each timestamp an output array (yHat) and the hidden states are computed, the output arrays are added to
+        # For each timestep an output array (yHat) and the hidden states are computed, the output arrays are added to
         # the prediction array and the hidden states are added to the hidden states array for later use in the truncated
-        # back propagation through time.
+        # back propagation through time algorithm.
         for i in range(len(Y)):
             u, y = U[i], Y[i]
             x = self.state(x, u)
@@ -208,7 +206,7 @@ class RNN:
             preds.append(yHat)
         return np.array(preds), np.array(hidden_states)
 
-    # A method that performs truncated back propagation through time.
+    # A method that performs the truncated back propagation through time algorithm.
     # The gradients of the weight matrices are computed with the use of the derivative of the loss.
     def backprop(self, yHat, U, x, Y):
         dWin = np.zeros(self.Winput.shape)
@@ -216,22 +214,33 @@ class RNN:
         dW = np.zeros(self.W.shape)
 
         for t in range(len(Y))[::-1]:
+            # The derivative of the loss is computed.
             delta_loss = np.array(2 * (abs(yHat[t] - Y[t])))
+            # The gradient of the Wout matrix is computed.
             dWout += np.outer(delta_loss, x[t])
+            # delta_t is the derivative of the loss multiplied with the Wout matrix,
+            # and then multiplied with the partial derivative of the activation value.
+            # This value is updated in the loop that follows.
             delta_t = np.dot(np.transpose(self.Woutput), delta_loss)
             delta_t = delta_t * self.sigmoidPrime(x[t])
 
             maximum = max(0, t-self.bptt_truncate)
+            # This loop is the backward pass of the algorithm, it loops back till the truncate value.
             for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
+                # The gradient of the W matrix is the sum of all the delta_t's times the hidden activation value.
                 dW += np.outer(delta_t, x[timestep - 1])
+                # The gradient of the Win matrix is the sum of all the delta_t's times the input value.
                 dWin += np.outer(delta_t, U[timestep])
+                # The delta_t is updated each step you go back through the network, now instead of multiplying with
+                # the Wout, you multiply with the W matrix.
                 delta_t = np.dot(np.transpose(self.W), delta_t)
                 delta_t = delta_t * self.sigmoidPrime(x[timestep-1])
 
+            # Average
             dW /= (t+1-maximum)
             dWin /= (t+1-maximum)
 
-
+        # Average over the length.
         dWin /= len(Y)
         dW /= len(Y)
         dWout /= len(Y)
@@ -275,17 +284,15 @@ class RNN:
         #  Computation of the outputs with the use of the prime array, the same way as in the forward function.
         for i in range(len(Y)):
             u = U[i]
-            y = Y[i]
-            x = self.state(prev_x, u, y)
+            x = self.state(prev_x, u)
             yHat = np.dot(self.Woutput, x)
             yHat = self.sigmoid(yHat)
             hidden_states.append(x)
-            #preds.append(yHat)
             prev_x = x
         # Computation of the outputs in which the previous output is used as the new input.
         prev_y = yHat
         for j in range(len(U), 100):
-            x = self.state(prev_x, prev_y, prev_y)
+            x = self.state(prev_x, prev_y)
             out = np.dot(self.Woutput, x)
             yHat = self.sigmoid(out)
             hidden_states.append(x)
@@ -313,7 +320,6 @@ trainLossDiminish = 0
 while previous_Testloss >= testLoss and trainLossDiminish != 5:
     if(prev_loss < trainLoss):
         trainLossDiminish += 1
-        print('is lower')
     epoch += 1
     trainingLosses.append(trainLoss)
     testLosses.append(testLoss)
@@ -340,6 +346,7 @@ for i in range(5):
 testLosses = np.reshape(testLosses, (len(testLosses)))
 trainingLosses = np.reshape(trainingLosses, (len(trainingLosses)))
 plot_losses(testLosses, trainingLosses, n)
+
 
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
