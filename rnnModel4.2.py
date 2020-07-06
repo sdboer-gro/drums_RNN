@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from scipy.special import expit, logit
 
 # The csv file containing the information of the song 'sunday' of U2 is transformed to a 464 by 2 matrix,
 # representing for each of the 464 timestamps the drum hits of two different drums. This matrix is used as
@@ -161,14 +162,15 @@ class RNN:
 
     # A method applies the sigmoid function.
     def sigmoid(self, x):
-        return 1 / (1 + np.exp(-x))
+        return(expit(x))
 
     # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b).
     def state(self, x, u, y):
         mulu = np.dot(self.Winput, u)
         mulx = np.dot(self.W, x)
         mulfb = np.dot(self.Wfb, y)
-        add = np.add(mulu, mulx, mulfb)
+        add = np.add(mulu, mulx)
+        add = np.add(add, mulfb)
         return np.array(self.sigmoid(np.add(add, self.b)))
 
     # A method that checks the loss given an input array and an output array representing the expected output with the
@@ -219,13 +221,12 @@ class RNN:
         dW = np.zeros(self.W.shape)
         dWfb = np.zeros(self.Wfb.shape)
 
-        delta_loss = 2 * (abs(yHat - Y))
-        delta_loss = np.array(delta_loss)
-
         for t in range(len(Y))[::-1]:
-            dWout += np.outer(delta_loss[t], x[t])
-            delta_t = np.dot(np.transpose(self.Woutput), delta_loss[t])
-            #delta_t *= self.sigmoidPrime(x[t]) # we doen hier toch * want dot ging fout (is een getal niet een vector)
+            delta_loss = np.array(2 * (abs(yHat[t] - Y[t])))
+            dWout += np.outer(delta_loss, x[t])
+            delta_t = np.dot(np.transpose(self.Woutput), delta_loss)
+            #dWfb += np.outer(delta_loss, yHat[t])
+            delta_t = delta_t * self.sigmoidPrime(x[t])
 
             maximum = max(0, t-self.bptt_truncate)
             for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
@@ -238,6 +239,9 @@ class RNN:
             dW /= (t+1-maximum)
             dWin /= (t+1-maximum)
             dWfb /= (t+1-maximum)
+            #dW = np.outer(delta_t, dW)
+            #print(dW.shape)
+
 
         dWin /= len(Y)
         dW /= len(Y)
@@ -246,7 +250,7 @@ class RNN:
         return dWin, dW, dWout, dWfb
 
     # A method that updates the weight matrices.
-    def updateWeights(self, dWin, dW, dWout, dWfb, Y):
+    def updateWeights(self, dWin, dW, dWout, Y, dWfb):
         # Preventing from exploding gradient problem:
         if dWin.max() > self.max_clip_value:
             dWin[dWin > self.max_clip_value] = self.max_clip_value
@@ -267,10 +271,10 @@ class RNN:
             dWfb[dWfb < self.min_clip_value] = self.min_clip_value
 
         # Updates the weights with the gradients and applies the ridge regression:
-        self.Winput = self.Winput - self.learning_rate * dWin - 2 * self.alfa * (self.Winput / len(Y))
-        self.W = self.W - self.learning_rate * dW - 2 * self.alfa * (self.W / len(Y))
-        self.Woutput = self.Woutput - self.learning_rate * dWout - 2 * self.alfa * (self.Woutput / len(Y))
-        self.Wfb = self.Wfb - self.learning_rate * dWfb - 2 * self.alfa * (self.Wfb / len(Y))
+        self.Winput = self.Winput - (self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y)))
+        self.W = self.W - (self.learning_rate * dW + 2 * self.alfa * (self.W / len(Y)))
+        self.Woutput = self.Woutput - (self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y)))
+        self.Wfb = self.Wfb - (self.learning_rate * dWfb + 2 * self.alfa * (self.Wfb / len(Y)))
 
     # A method that trains the recurrent neural network by performing the forward pass and the truncated backpropagation
     # through time and that updates the weight matrices.
@@ -278,7 +282,7 @@ class RNN:
         x = np.zeros((self.hidden_size, 1))
         yHat, hidden_states = self.forward(U, x, Y)
         dWin, dW, dWout, dWfb = self.backprop(yHat, U, hidden_states, Y)
-        self.updateWeights(dWin, dW, dWout, dWfb, Y)
+        self.updateWeights(dWin, dW, dWout, Y, dWfb)
 
     # A method that computes an output array with a prime array.
     def prediction(self, U, Y):
@@ -348,7 +352,7 @@ for i in range(5):
 
 testLosses = np.reshape(testLosses, (len(testLosses)))
 trainingLosses = np.reshape(trainingLosses, (len(trainingLosses)))
-#plot_losses(testLosses, trainingLosses, n)
+plot_losses(testLosses, trainingLosses, n)
 
 # The actual training of the recurrent neural network with the right number of epochs.
 for i in range(epoch):
