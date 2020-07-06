@@ -152,7 +152,6 @@ class RNN:
         self.Winput = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
         self.W = np.random.randn(self.hidden_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
         self.Woutput = np.random.randn(self.vocab_size, self.hidden_size) * np.sqrt(2/self.hidden_size)
-        self.Wfb = np.random.randn(self.hidden_size, self.vocab_size) * np.sqrt(2/self.vocab_size)
 
         self.b = np.ones((self.hidden_size, 1))
 
@@ -165,12 +164,10 @@ class RNN:
         return(expit(x))
 
     # A method that returns the next hidden state, it applies the function x[n+1] = sigmoid(W*x[n] + Win*u[n+1] + b).
-    def state(self, x, u, y):
+    def state(self, x, u):
         mulu = np.dot(self.Winput, u)
         mulx = np.dot(self.W, x)
-        mulfb = np.dot(self.Wfb, y)
         add = np.add(mulu, mulx)
-        add = np.add(add, mulfb)
         return np.array(self.sigmoid(np.add(add, self.b)))
 
     # A method that checks the loss given an input array and an output array representing the expected output with the
@@ -202,15 +199,13 @@ class RNN:
         # For each timestamp an output array (yHat) and the hidden states are computed, the output arrays are added to
         # the prediction array and the hidden states are added to the hidden states array for later use in the truncated
         # back propagation through time.
-        prev_yHat = np.zeros(shape=(2,1))
         for i in range(len(Y)):
             u, y = U[i], Y[i]
-            x = self.state(x, u, prev_yHat)
+            x = self.state(x, u)
             yHat = np.dot(self.Woutput, x)
             yHat = self.sigmoid(yHat)
             hidden_states.append(x)
             preds.append(yHat)
-            prev_yHat = yHat
         return np.array(preds), np.array(hidden_states)
 
     # A method that performs truncated back propagation through time.
@@ -219,38 +214,31 @@ class RNN:
         dWin = np.zeros(self.Winput.shape)
         dWout = np.zeros(self.Woutput.shape)
         dW = np.zeros(self.W.shape)
-        dWfb = np.zeros(self.Wfb.shape)
 
         for t in range(len(Y))[::-1]:
             delta_loss = np.array(2 * (abs(yHat[t] - Y[t])))
             dWout += np.outer(delta_loss, x[t])
             delta_t = np.dot(np.transpose(self.Woutput), delta_loss)
-            #dWfb += np.outer(delta_loss, yHat[t])
             delta_t = delta_t * self.sigmoidPrime(x[t])
 
             maximum = max(0, t-self.bptt_truncate)
             for timestep in np.arange(max(0, t-self.bptt_truncate), t+1)[::-1]:
                 dW += np.outer(delta_t, x[timestep - 1])
                 dWin += np.outer(delta_t, U[timestep])
-                dWfb += np.outer(delta_t, yHat[timestep])
                 delta_t = np.dot(np.transpose(self.W), delta_t)
                 delta_t = delta_t * self.sigmoidPrime(x[timestep-1])
 
             dW /= (t+1-maximum)
             dWin /= (t+1-maximum)
-            dWfb /= (t+1-maximum)
-            #dW = np.outer(delta_t, dW)
-            #print(dW.shape)
 
 
         dWin /= len(Y)
         dW /= len(Y)
         dWout /= len(Y)
-        dWfb /= len(Y)
-        return dWin, dW, dWout, dWfb
+        return dWin, dW, dWout
 
     # A method that updates the weight matrices.
-    def updateWeights(self, dWin, dW, dWout, Y, dWfb):
+    def updateWeights(self, dWin, dW, dWout, Y):
         # Preventing from exploding gradient problem:
         if dWin.max() > self.max_clip_value:
             dWin[dWin > self.max_clip_value] = self.max_clip_value
@@ -258,8 +246,6 @@ class RNN:
             dW[dW > self.max_clip_value] = self.max_clip_value
         if dWout.max() > self.max_clip_value:
             dWout[dWout > self.max_clip_value] = self.max_clip_value
-        if dWfb.max() > self.max_clip_value:
-            dWfb[dWfb > self.max_clip_value] = self.max_clip_value
 
         if dWin.min() < self.min_clip_value:
             dWin[dWin < self.min_clip_value] = self.min_clip_value
@@ -267,22 +253,19 @@ class RNN:
             dW[dW < self.min_clip_value] = self.min_clip_value
         if dWout.min() < self.min_clip_value:
             dWout[dWout < self.min_clip_value] = self.min_clip_value
-        if dWfb.min() < self.min_clip_value:
-            dWfb[dWfb < self.min_clip_value] = self.min_clip_value
 
         # Updates the weights with the gradients and applies the ridge regression:
         self.Winput = self.Winput - (self.learning_rate * dWin + 2 * self.alfa * (self.Winput / len(Y)))
         self.W = self.W - (self.learning_rate * dW + 2 * self.alfa * (self.W / len(Y)))
         self.Woutput = self.Woutput - (self.learning_rate * dWout + 2 * self.alfa * (self.Woutput / len(Y)))
-        self.Wfb = self.Wfb - (self.learning_rate * dWfb + 2 * self.alfa * (self.Wfb / len(Y)))
 
     # A method that trains the recurrent neural network by performing the forward pass and the truncated backpropagation
     # through time and that updates the weight matrices.
     def training(self, U, Y):
         x = np.zeros((self.hidden_size, 1))
         yHat, hidden_states = self.forward(U, x, Y)
-        dWin, dW, dWout, dWfb = self.backprop(yHat, U, hidden_states, Y)
-        self.updateWeights(dWin, dW, dWout, Y, dWfb)
+        dWin, dW, dWout = self.backprop(yHat, U, hidden_states, Y)
+        self.updateWeights(dWin, dW, dWout, Y)
 
     # A method that computes an output array with a prime array.
     def prediction(self, U, Y):
@@ -326,7 +309,11 @@ trainLoss = rnn.checkLoss(vector_array_u_train, vector_array_y_train)
 
 testLosses = []
 trainingLosses = []
-while previous_Testloss >= testLoss:
+trainLossDiminish = 0
+while previous_Testloss >= testLoss and trainLossDiminish != 5:
+    if(prev_loss < trainLoss):
+        trainLossDiminish += 1
+        print('is lower')
     epoch += 1
     trainingLosses.append(trainLoss)
     testLosses.append(testLoss)
