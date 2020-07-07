@@ -7,6 +7,12 @@ To run this code, the csv files of the three songs are needed in the same folder
 
 When the code is run, a new csv file (named result.csv) and the corresponding MIDI file (named result.mid) are created. These files contain the new drum rhythm created by the RNN. Besides this, a picture of a graph is created named flexibility.png. In this graph, the testing loss and training loss of each epoch are displayed to show with how many epochs the RNN was trained without overfitting.
 
+Needed to run:
+- Python library py_midicsv
+- Python library scipy
+- Python library matplotlib.pyplot
+- Python library csv
+
 Sanne Berends (s3772950)
 Sarah de Boer (s3628701)
 Aniek Eijpe (s3756645)

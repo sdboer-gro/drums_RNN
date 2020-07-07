@@ -3,6 +3,7 @@ import csv
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from scipy.special import expit, logit
+import py_midicsv
 
 # The arrays for the training dataset, the test dataset, the combined dataset
 # and the prime dataset are initialized using numpy arrays.
@@ -386,10 +387,10 @@ with open('result.csv', 'w') as f:
     f.write('0, 0, End_of_file\n')
 
 
-'''midi = py_midicsv.csv_to_midi('result.csv')
+midi = py_midicsv.csv_to_midi('result.csv')
 
 # the csv file containing the information of the output is transformed into a midi file.
 with open("result.mid", "wb") as output_file:
     midi_writer = py_midicsv.FileWriter(output_file)
     midi_writer.write(midi)
-'''
+
