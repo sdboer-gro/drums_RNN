@@ -119,12 +119,12 @@ with open('pride.csv', newline='') as f:
 def plot_losses(testingLoss, trainingLoss, epoch):
     t = np.linspace(0.0, epoch, epoch)
     fig, ax = plt.subplots()
-    loss, = ax.plot(t, testingLoss, label = "loss")
-    Emploss, = ax.plot(t, trainingLoss, label = "Emperical loss")
+    loss, = ax.plot(t, testingLoss, label = "Testing loss")
+    Emploss, = ax.plot(t, trainingLoss, label = "Training loss")
 
-    ax.set(xlabel='Epochs', ylabel='Loss/emperical risk', title='Model flexibility', label='')
-    ax.legend(['Testing Loss', 'Emperical loss'])
-    ax.set_ylim([0, 2])
+    ax.set(xlabel='Epochs', ylabel='Loss', title='Model flexibility', label='')
+    ax.legend(['Testing Loss', 'Training Loss'])
+    ax.set_ylim([0, 1])
     ax.grid()
 
     fig.savefig("flexibility.png")
@@ -142,7 +142,7 @@ class RNN:
         self.vocab_size = 2
         self.learning_rate = 0.001
 
-        self.bptt_truncate = 50
+        self.bptt_truncate = 10
         self.min_clip_value = -1
         self.max_clip_value = 1
         self.alfa = 5
@@ -333,7 +333,7 @@ while previous_Testloss >= testLoss and trainLossDiminish != 5:
 n = epoch
 
 # The training is run for some more epochs to show in the model flexibility plot.
-for i in range(5):
+for i in range(10):
     n += 1
     trainingLosses.append(trainLoss)
     testLosses.append(testLoss)
